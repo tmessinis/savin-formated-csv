@@ -30,19 +30,21 @@ function get-ad-user{
     }
     Catch {
         $error_message = $_.Exception.Message
-        $error_message > error.txt
+        $error_message >> dot_notation_sam_error.txt
+        "User " + $sam_acct_v1 + " was not found..." >> dot_notation_sam_error.txt
     }
 
-    $user
-    $user -eq $null
+    #$user
+    #$user -eq $null
 
-    if ($user -eq $null){
+    if ($user.length -eq 0){
         Try {
             $user = Get-ADUser -Identity $sam_acct_v2 -Properties EmailAddress
         }
         Catch {
             $error_message = $_.Excepation.Message
-            $error_message > error.txt
+            $error_message >> compact_notation_sam_error.txt
+            "User " + $sam_acct_v2 + " was not found..." >> compact_notation_sam_error.txt
         }
     }
 
@@ -62,11 +64,25 @@ function set-user-info-array{
 
     #$user_info = Get-ADUser -Identity $sam_acct -Properties EmailAddress
     $user_info = get-ad-user $sam_acct_v1 $sam_acct_v2
-    $key_display = $user_info.GivenName[0] + " " + $user_info.Surname
+    Try {
+        $key_display = $user_info.GivenName[0] + " " + $user_info.Surname
+    }
+    Catch {
+        $error_message = $_.Exception.Message
+        $sam_acct_v1 >> null_error.txt
+        $sam_acct_v2 >> null_error.txt
+        $error_message >> null_error.txt
+    }
         
     foreach ($key in $SAVIN_TITLE1_CODES.KEYS.GetEnumerator()){
-        if ($key.Contains($user_info.Surname[0])){
-            $title1_num_value = $SAVIN_TITLE1_CODES[$key]
+        Try {
+            if ($key.Contains($user_info.Surname[0])){
+                    $title1_num_value = $SAVIN_TITLE1_CODES[$key]
+            }
+        }
+        Catch {
+            $error_message = $_.Exception.Message
+            $error_message >> null_error.txt
         }
     }
 
