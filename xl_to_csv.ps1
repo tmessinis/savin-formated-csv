@@ -1,11 +1,13 @@
 ﻿# Initialize a couple of array variables.
 $sam_account_names = @()
 $array_to_export = @()
+$user_not_found_array = @()
+$out_array = @()
 
 # Codes for savin printers to associate users with the correct
 # initials.
 $SAVIN_TITLE1_CODES = @{
-    "AD" = "1";
+    "AB" = "1";
     "CD" = "2";
     "EF" = "3";
     "GH" = "4";
@@ -24,6 +26,7 @@ function get-ad-user{
 
     $user = ""
     $error_message = ""
+    $user_not_found_error_count = 0
 
     Try {
         $user = Get-ADUser -Identity $sam_acct_v1 -Properties EmailAddress
@@ -32,10 +35,8 @@ function get-ad-user{
         $error_message = $_.Exception.Message
         $error_message >> dot_notation_sam_error.txt
         "User " + $sam_acct_v1 + " was not found..." >> dot_notation_sam_error.txt
+        $user_not_found_error_count++
     }
-
-    #$user
-    #$user -eq $null
 
     if ($user.length -eq 0){
         Try {
@@ -45,7 +46,13 @@ function get-ad-user{
             $error_message = $_.Excepation.Message
             $error_message >> compact_notation_sam_error.txt
             "User " + $sam_acct_v2 + " was not found..." >> compact_notation_sam_error.txt
+            $user_not_found_error_count++
         }
+    }
+
+    if ($user_not_found_error_count -eq 2) {
+        $user_not_found = @($sam_acct_v1, $sam_acct_v2)
+        $user_not_found_array += , $user_not_found
     }
 
     return $user
@@ -109,16 +116,36 @@ foreach ($name in $csv_sheet.Name){
         $split_name = $name.split(", ")
         $sam_account_name_v1 = $split_name[2].substring(0,$split_name[2].length - 1) + "." + $split_name[0]
         $sam_account_name_v2 = $split_name[2][0] + $split_name[0]
-        
-        $array_to_export += set-user-info-array $sam_account_name_v1 $sam_account_name_v2
+
+        $user_info_array = set-user-info-array $sam_account_name_v1 $sam_account_name_v2
+
+        if ($user_info_array -eq $null){
+            $user_not_found_array += $split_name
+        }
+        else{
+            #$array_to_export += set-user-info-array $sam_account_name_v1 $sam_account_name_v2
+            $array_to_export += , $user_info_array
+        }
     }
     else{
         $split_name = $name.Split(", ")
         $sam_account_name_v1 = $split_name[2] + "." + $split_name[0]
         $sam_account_name_v2 = $split_name[2][0] + $split_name[0]
 
-        $array_to_export += set-user-info-array $sam_account_name_v1 $sam_account_name_v2
+        $user_info_array = set-user-info-array $sam_account_name_v1 $sam_account_name_v2
+        $array_to_export += , $user_info_array
     }
 }
 
 $array_to_export
+
+foreach ($user in $array_to_export) {
+    $out_array += New-Object PsObject -Property @{
+        "Name" = $user[0]
+        "KeyDisplay" = $user[1]
+        "Email" = $user[2]
+        "Title1" = $user[3]
+    }
+}
+
+$out_array | export-csv .\final.csv
